@@ -1,117 +1,185 @@
-const Follow = require('../models/Follow');
+const Follow = require("../models/Follow");
+const User = require("../models/User");
 
-// ✅ Follow a user
+// ============================
+// FOLLOW USER
+// ============================
 exports.followUser = async (req, res) => {
   try {
-    const { userId } = req.body; // user to follow
-    const followerId = req.user.id; // logged-in user (from auth middleware)
+    const followerId = req.user._id; // Logged in user
+    const { followingId } = req.body;
 
-    if (followerId === userId) {
-      return res.status(400).json({ message: "You can't follow yourself" });
+    // Prevent self follow
+    if (followerId.toString() === followingId) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot follow yourself",
+      });
     }
 
+    // Check if user exists
+    const userToFollow = await User.findById(followingId);
+
+    if (!userToFollow) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check already following
+    const existingFollow = await Follow.findOne({
+      follower: followerId,
+      following: followingId,
+    });
+
+    if (existingFollow) {
+      return res.status(400).json({
+        success: false,
+        message: "Already following this user",
+      });
+    }
+
+    // Create follow
     const follow = await Follow.create({
       follower: followerId,
-      following: userId
+      following: followingId,
     });
 
     res.status(201).json({
       success: true,
       message: "User followed successfully",
-      follow
+      data: follow,
     });
 
   } catch (error) {
-    // Handle duplicate follow (unique index error)
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: "Already following this user"
-      });
-    }
+    console.log(error);
 
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Error while following user",
+      error: error.message,
+    });
   }
 };
 
-// ❌ Unfollow a user
+// ============================
+// UNFOLLOW USER
+// ============================
 exports.unfollowUser = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const followerId = req.user.id;
+    const followerId = req.user._id;
+    const { followingId } = req.body;
 
-    const result = await Follow.findOneAndDelete({
+    const follow = await Follow.findOneAndDelete({
       follower: followerId,
-      following: userId
+      following: followingId,
     });
 
-    if (!result) {
+    if (!follow) {
       return res.status(404).json({
-        message: "Follow request not found"
+        success: false,
+        message: "Follow relationship not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: "User unfollowed successfully"
+      message: "User unfollowed successfully",
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error while unfollowing user",
+      error: error.message,
+    });
   }
 };
 
-// 📥 Get followers of a user
+// ============================
+// GET FOLLOWERS OF A USER
+// ============================
 exports.getFollowers = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const followers = await Follow.find({ following: userId })
-      .populate('follower', 'name email');
+    const followers = await Follow.find({
+      following: userId,
+    }).populate("follower", "name email profilePic");
 
     res.status(200).json({
-      count: followers.length,
-      followers
+      success: true,
+      totalFollowers: followers.length,
+      data: followers,
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error fetching followers",
+      error: error.message,
+    });
   }
 };
 
-// 📤 Get users that a user is following
+// ============================
+// GET FOLLOWING LIST
+// ============================
 exports.getFollowing = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const following = await Follow.find({ follower: userId })
-      .populate('following', 'name email');
+    const following = await Follow.find({
+      follower: userId,
+    }).populate("following", "name email profilePic");
 
     res.status(200).json({
-      count: following.length,
-      following
+      success: true,
+      totalFollowing: following.length,
+      data: following,
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error fetching following list",
+      error: error.message,
+    });
   }
 };
 
-// 🔍 Check if current user follows another user
+// ============================
+// CHECK FOLLOW STATUS
+// ============================
 exports.checkFollowStatus = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const followerId = req.user.id;
+    const followerId = req.user._id;
+    const { followingId } = req.params;
 
-    const exists = await Follow.findOne({
+    const follow = await Follow.findOne({
       follower: followerId,
-      following: userId
+      following: followingId,
     });
 
     res.status(200).json({
-      isFollowing: !!exists
+      success: true,
+      isFollowing: !!follow,
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error checking follow status",
+      error: error.message,
+    });
   }
 };

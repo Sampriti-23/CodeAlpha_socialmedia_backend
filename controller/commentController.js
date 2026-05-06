@@ -1,97 +1,153 @@
-const Comment = require('../models/commentModel');
+// controller/commentController.js
 
-//  Create a comment
+const Comment = require("../models/Comment");
+const Post = require("../models/Post");
+
 exports.createComment = async (req, res) => {
-    try {
-        const { postId, text } = req.body;
+  try {
+    const { postId, text } = req.body;
 
-        if (!text || text.trim() === "") {
-            return res.status(400).json({ message: "Comment cannot be empty" });
-        }
+    const post = await Post.findById(postId);
 
-        const comment = new Comment({
-            post: postId,
-            text: text,
-            author: req.user._id
-        });
-
-        await comment.save();
-
-        res.status(201).json({
-            message: "Comment created successfully",
-            comment
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
     }
+
+    const comment = await Comment.create({
+      post: postId,
+      author: req.user._id,
+      text,
+    });
+
+    post.commentsCount += 1;
+    await post.save();
+
+    const populatedComment = await Comment.findById(comment._id)
+      .populate("author", "username profilePicture")
+      .populate("post");
+
+    res.status(201).json({
+      success: true,
+      message: "Comment added successfully",
+      data: populatedComment,
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error creating comment",
+      error: error.message,
+    });
+  }
 };
 
-//  Get comments for a post
-exports.getCommentsByPost = async (req, res) => {
-    try {  
-        const comments = await Comment.find({ post: req.params.postId })
-            .populate('author', 'username')
-            .sort({ createdAt: -1 }); // latest first
+exports.getPostComments = async (req, res) => {
+  try {
+    const { postId } = req.params;
 
-        res.status(200).json(comments);
+    const comments = await Comment.find({ post: postId })
+      .populate("author", "username profilePicture")
+      .sort({ createdAt: -1 });
 
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    res.status(200).json({
+      success: true,
+      totalComments: comments.length,
+      data: comments,
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error fetching comments",
+      error: error.message,
+    });
+  }
 };
 
-//  Update a comment (only author)
 exports.updateComment = async (req, res) => {
-    try {
-        const { text } = req.body;
+  try {
+    const { commentId } = req.params;
+    const { text } = req.body;
+    const comment = await Comment.findById(commentId);
 
-        const comment = await Comment.findById(req.params.commentId);
-
-        if (!comment) {
-            return res.status(404).json({ message: "Comment not found" });
-        }
-
-        // 🔐 Check ownership
-        if (comment.author.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: "Not authorized" });
-        }
-
-        comment.text = text || comment.text;
-
-        await comment.save();
-
-        res.status(200).json({
-            message: "Comment updated successfully",
-            comment
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
     }
+    if (comment.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+    comment.text = text;
+    await comment.save();
+    const populatedComment = await Comment.findById(comment._id)
+      .populate("author", "username profilePicture")
+      .populate("post");
+    res.status(200).json({
+      success: true,
+      message: "Comment updated successfully",
+      data: populatedComment,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({  
+      success: false,
+      message: "Error updating comment",
+      error: error.message,
+    });
+  }
 };
 
-//  Delete a comment (only author)
+
 exports.deleteComment = async (req, res) => {
-    try {
-        const comment = await Comment.findById(req.params.commentId);
+  try {
+    const { commentId } = req.params;
 
-        if (!comment) {
-            return res.status(404).json({ message: "Comment not found" });
-        }
+    const comment = await Comment.findById(commentId);
 
-        // 🔐 Check ownership
-        if (comment.author.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: "Not authorized" });
-        }
-
-        await comment.deleteOne();
-
-        res.status(200).json({
-            message: "Comment deleted successfully"
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
     }
+
+    if (comment.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    await Post.findByIdAndUpdate(comment.post, {
+      $inc: { commentsCount: -1 },
+    });
+
+    await comment.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Comment deleted successfully",
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error deleting comment",
+      error: error.message,
+    });
+  }
 };
