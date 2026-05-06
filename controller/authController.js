@@ -2,33 +2,38 @@ const User = require('../models/User'); // Use the User model
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-exports.registerUser = async (req, res) => {
-  try {
-    const { username, email, password } = req.body; // Changed 'name' to 'username'
-
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ message: "Email already registered" });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    const user = await User.create({
-      username, // Match model
-      email,
-      password: passwordHash,
-    });
-
-    res.status(201).json({ message: "User registered successfully", userId: user._id });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+exports.registerUser = async (req, res) => { 
+   try {   
+     console.log(req.body);   
+     const { username, email, password } = req.body;    
+     if (!username || !email || !password) {     
+       return res.status(400).json({        
+        message: "All fields required",     
+       });   
+       }   
+        const existingUser = await User.findOne({ email });   
+         if (existingUser) {      
+          return res.status(400).json({        
+            message: "User already exists",    
+            });  
+            }   
+             const hashedPassword = await bcrypt.hash(password, 10);   
+              const user = new User({    
+                  username,    
+                    email,     
+                     password: hashedPassword,    
+                }); 
+               await user.save();   
+                res.status(201).json({      
+                  success: true,     
+                   user,    
+                  }); 
+                 } catch (error) {  
+                    console.log("REGISTER ERROR => ", error);  
+                      res.status(500).json({ 
+                             message: error.message,   
+                             }); 
+                             }};
 
 exports.loginUser = async (req, res) => {
   try {
