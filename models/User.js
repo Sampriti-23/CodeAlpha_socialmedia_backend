@@ -19,6 +19,8 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+bio:{ type: String, maxlength: 200 },
+
     profilePicture: {
       type: String,
       default:

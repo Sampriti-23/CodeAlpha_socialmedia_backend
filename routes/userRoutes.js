@@ -10,16 +10,20 @@ const {
   getMyProfile,
   updateProfile,
   deleteUser,
+  getUserStats,
 } = require("../controller/userController");
 
 router.get("/all", authMiddleware, getAllUsers);
 
 router.get("/me", authMiddleware, getMyProfile);
 
+router.get("/:userId/stats", authMiddleware, getUserStats);
+
 router.get("/:userId", authMiddleware, getSingleUser);
 
 router.put("/update", authMiddleware, updateProfile);
 
 router.delete("/delete", authMiddleware, deleteUser);
+
 
 module.exports = router;

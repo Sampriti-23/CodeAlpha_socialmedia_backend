@@ -9,16 +9,15 @@ exports.createPost = async (req, res) => {
 
     const post = await Post.create({
       author: req.user._id,
-      content,
-      image,
+      content: req.body.content,
+      image: req.body.image,
     });
 
     const populatedPost = await Post.findById(post._id)
-      .populate("author", "name email profilePic");
+      .populate("author", "username email profilePicture");
 
     res.status(201).json({
       success: true,
-      message: "Post created successfully",
       data: populatedPost,
     });
 
@@ -39,8 +38,11 @@ exports.createPost = async (req, res) => {
 exports.getAllPosts = async (req, res) => {
   try {
     const posts = await Post.find()
-      .populate("author", "name email profilePic")
-      .populate("likes", "name profilePic")
+      .populate(
+  "author",
+  "username email profilePicture"
+)
+      .populate("likes", "username profilePicture")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -68,8 +70,8 @@ exports.getSinglePost = async (req, res) => {
     const { postId } = req.params;
 
     const post = await Post.findById(postId)
-      .populate("author", "name email profilePic")
-      .populate("likes", "name profilePic");
+      .populate("author", "username email profilePicture")
+      .populate("likes", "username profilePicture");
 
     if (!post) {
       return res.status(404).json({
@@ -186,55 +188,101 @@ exports.deletePost = async (req, res) => {
 // ==============================
 // LIKE / UNLIKE POST
 // ==============================
-exports.toggleLikePost = async (req, res) => {
-  try {
-    const { postId } = req.params;
+exports.toggleLikePost =
+async (req, res) => {
 
-    const post = await Post.findById(postId);
+  try {
+
+    const { postId } =
+      req.params;
+
+    const post =
+      await Post.findById(
+        postId
+      );
 
     if (!post) {
+
       return res.status(404).json({
+
         success: false,
-        message: "Post not found",
+
+        message:
+          "Post not found",
       });
     }
 
-    const userId = req.user._id;
+    const userId =
+      req.user._id;
 
-    const alreadyLiked = post.likes.includes(userId);
+    const alreadyLiked =
+      post.likes.some(
+
+        (id) =>
+
+          id.toString() ===
+          userId.toString()
+      );
+
+    // =====================
+    // UNLIKE
+    // =====================
 
     if (alreadyLiked) {
-      // Unlike
-      post.likes = post.likes.filter(
-        (id) => id.toString() !== userId.toString()
-      );
+
+      post.likes =
+        post.likes.filter(
+
+          (id) =>
+
+            id.toString() !==
+            userId.toString()
+        );
 
       await post.save();
 
       return res.status(200).json({
+
         success: true,
-        message: "Post unliked",
-        totalLikes: post.likes.length,
+
+        liked: false,
+
+        totalLikes:
+          post.likes.length,
       });
     }
 
-    // Like
-    post.likes.push(userId);
+    // =====================
+    // LIKE
+    // =====================
+
+    post.likes.push(
+      userId
+    );
 
     await post.save();
 
     res.status(200).json({
+
       success: true,
-      message: "Post liked",
-      totalLikes: post.likes.length,
+
+      liked: true,
+
+      totalLikes:
+        post.likes.length,
     });
 
   } catch (error) {
+
     console.log(error);
 
     res.status(500).json({
+
       success: false,
-      message: "Error liking/unliking post",
+
+      message:
+        "Error liking post",
+
       error: error.message,
     });
   }
@@ -248,7 +296,7 @@ exports.getMyPosts = async (req, res) => {
     const posts = await Post.find({
       author: req.user._id,
     })
-      .populate("author", "name email profilePic")
+      .populate("author", "username email profilePicture")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
