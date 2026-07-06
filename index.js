@@ -92,6 +92,6 @@ app.use('/api/messages', messageRoutes);
 
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`FRIENDWAVE Backend running on http://localhost:${PORT}`);
 });

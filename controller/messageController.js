@@ -26,10 +26,13 @@ const sendMessage = async (req, res) => {
       text: text,
     });
 
-   
     conversation.lastMessage = text;
+    conversation.updatedAt = new Date();
+
     await conversation.save();
 
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate("sender", "username profilePicture");
    
     const io = req.app.get("io");
     const userSocketMap = req.app.get("userSocketMap");
@@ -37,12 +40,12 @@ const sendMessage = async (req, res) => {
 
     const receiverSocketId = userSocketMap[receiverId];
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
+      io.to(receiverSocketId).emit("newMessage", populatedMessage);
     }
 
     res.status(201).json({
       success: true,
-      data: newMessage,
+      data: populatedMessage,
     });
   } catch (error) {
     res.status(500).json({
@@ -87,7 +90,8 @@ const getConversations = async (req, res) => {
 
     const conversations = await Conversation.find({
       participants: { $in: [userId] },
-    }).populate("participants", "username profilePicture"); 
+    }) .populate("participants", "username profilePicture")
+      .sort({ updatedAt: -1 });
 
     res.status(200).json({
       success: true,

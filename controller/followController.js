@@ -11,7 +11,7 @@ exports.followUser = async (
 ) => {
 
   try {
-
+    
     const followerId =
       req.user._id;
 
@@ -55,7 +55,6 @@ exports.followUser = async (
           "User not found",
       });
     }
-
     // =========================
     // CHECK ALREADY FOLLOWING
     // =========================
@@ -367,7 +366,7 @@ async (req, res) => {
     const followerId =
       req.user._id;
 
-    const { followingId } =
+    const { userId } =
       req.params;
 
     const follow =
@@ -375,7 +374,7 @@ async (req, res) => {
 
         follower: followerId,
 
-        following: followingId,
+        following: userId,
       });
 
     res.status(200).json({
@@ -383,7 +382,7 @@ async (req, res) => {
       success: true,
 
       isFollowing:
-        !!follow,
+        follow ? 1 : 0,
     });
 
   } catch (error) {
