@@ -105,8 +105,38 @@ const getConversations = async (req, res) => {
   }
 };
 
+const markMessagesAsRead = async (req, res) => {
+  try {
+    const { senderId } = req.params;
+
+    // 1. Verify senderId exists before querying MongoDB
+    if (!senderId || senderId === "undefined") {
+      return res.status(400).json({ success: false, message: "Invalid sender ID provided." });
+    }
+
+    // 2. Update all unread messages sent by this friend
+    const updateResult = await Message.updateMany(
+      { sender: senderId, isRead: false },
+      { $set: { isRead: true } }
+    );
+
+    // 3. Return success
+    res.status(200).json({ 
+      success: true, 
+      message: "Messages marked as read",
+      modifiedCount: updateResult.modifiedCount 
+    });
+
+  } catch (error) {
+    // This logs the exact crash reason directly in your Node terminal
+    console.error("❌ CRITICAL ERROR in /read/:senderId route:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessages,
   getConversations,
+  markMessagesAsRead,
 };

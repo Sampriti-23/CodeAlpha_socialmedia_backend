@@ -12,7 +12,6 @@ exports.createPost = async (req, res) => {
       content: req.body.content,
       image: req.body.image,
     });
-
     const populatedPost = await Post.findById(post._id)
       .populate("author", "username email profilePicture");
 
@@ -35,6 +34,7 @@ exports.createPost = async (req, res) => {
 // ==============================
 // GET ALL POSTS
 // ==============================
+
 exports.getAllPosts = async (req, res) => {
   try {
     const posts = await Post.find()
@@ -42,8 +42,8 @@ exports.getAllPosts = async (req, res) => {
   "author",
   "username email profilePicture"
 )
-      .populate("likes", "username profilePicture")
-      .sort({ createdAt: -1 });
+    .populate("likes", "username profilePicture")
+    .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -99,6 +99,7 @@ exports.getSinglePost = async (req, res) => {
 // ==============================
 // UPDATE POST
 // ==============================
+
 exports.updatePost = async (req, res) => {
   try {
     const { postId } = req.params;

@@ -14,40 +14,50 @@ const postRoutes = require('./routes/postRoutes');
 const followRoutes = require('./routes/followRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const storyRoutes = require('./routes/storyRoute');
 
 dotenv.config();
 
 const app = express();
 
-
-
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*", 
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
 
-
+// Store online users: { userId: socketId }
 const userSocketMap = {}; 
+
+// 🟢 HELPER FUNCTION: Get socket ID by User ID
+const getReceiverSocketId = (receiverId) => {
+  return userSocketMap[receiverId];
+};
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
-
 
   const userId = socket.handshake.query.userId;
   if (userId && userId !== "undefined") {
     userSocketMap[userId] = socket.id;
   }
 
+  // 🟢 REAL-TIME READ RECEIPTS
+  socket.on("markAsRead", ({ senderId, receiverId }) => {
+    const senderSocket = getReceiverSocketId(senderId); 
+    
+    if (senderSocket) {
+      io.to(senderSocket).emit("messagesRead", { readerId: receiverId });
+    }
+  });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
     delete userSocketMap[userId];
   });
 });
-
 
 app.set("io", io);
 app.set("userSocketMap", userSocketMap);
@@ -59,11 +69,8 @@ app.use(express.json());
 app.use(cors());
 
 app.use(
-
   "/uploads",
-
   express.static(
-
     path.join(
       __dirname,
       "uploads"
@@ -89,6 +96,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/follow', followRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/stories', storyRoutes);
 
 const PORT = process.env.PORT || 8000;
 
