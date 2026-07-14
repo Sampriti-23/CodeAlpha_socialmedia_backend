@@ -17,4 +17,5 @@ router.get("/followers/:userId", authMiddleware, getFollowers);
 router.get("/following/:userId", authMiddleware, getFollowing);
 router.get("/check-follow/:userId", authMiddleware, checkFollowStatus);
 
+
 module.exports = router;

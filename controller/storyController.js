@@ -51,6 +51,7 @@ exports.getStories = async (req, res) => {
             expiresAt: { $gt: new Date() }
         })
         .populate("user", "username profilePicture")
+        .populate("viewers.user", "username profilePicture")
         .sort({ createdAt: 1 });
 
         const groupedStories = {};

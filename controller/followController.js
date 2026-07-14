@@ -1,152 +1,69 @@
 const Follow = require("../models/Follow");
 const User = require("../models/User");
+const Notification = require("../models/Notification"); // 🟢 ADD THIS IMPORT
 
 // ============================
 // FOLLOW USER
 // ============================
-
-exports.followUser = async (
-  req,
-  res
-) => {
-
+exports.followUser = async (req, res) => {
   try {
-    
-    const followerId =
-      req.user._id;
+    const followerId = req.user._id;
+    const { followingId } = req.body;
 
-    const { followingId } =
-      req.body;
-
-    // =========================
     // PREVENT SELF FOLLOW
-    // =========================
-
-    if (
-      followerId.toString() ===
-      followingId
-    ) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        message:
-          "You cannot follow yourself",
-      });
+    if (followerId.toString() === followingId) {
+      return res.status(400).json({ success: false, message: "You cannot follow yourself" });
     }
 
-    // =========================
     // CHECK USER EXISTS
-    // =========================
-
-    const userToFollow =
-      await User.findById(
-        followingId
-      );
-
+    const userToFollow = await User.findById(followingId);
     if (!userToFollow) {
-
-      return res.status(404).json({
-
-        success: false,
-
-        message:
-          "User not found",
-      });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
-    // =========================
+
     // CHECK ALREADY FOLLOWING
-    // =========================
-
-    const existingFollow =
-      await Follow.findOne({
-
-        follower: followerId,
-
-        following: followingId,
-      });
-
+    const existingFollow = await Follow.findOne({ follower: followerId, following: followingId });
     if (existingFollow) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        message:
-          "Already following this user",
-      });
+      return res.status(400).json({ success: false, message: "Already following this user" });
     }
 
-    // =========================
     // CREATE FOLLOW
-    // =========================
+    const follow = await Follow.create({ follower: followerId, following: followingId });
 
-    const follow =
-      await Follow.create({
+    // UPDATE USERS
+    await User.findByIdAndUpdate(followerId, { $addToSet: { following: followingId } });
+    await User.findByIdAndUpdate(followingId, { $addToSet: { followers: followerId } });
 
-        follower: followerId,
+    // ==========================================
+    // 🟢 LIVE NOTIFICATION LOGIC 
+    // ==========================================
+    const currentUser = await User.findById(followerId); // Get sender's details
+    
+    let newNotif = await Notification.create({
+      receiver: followingId,
+      sender: followerId,
+      type: "follow",
+      message: `${currentUser.username} started following you.`
+    });
 
-        following: followingId,
-      });
+    // Populate sender details so the frontend gets the profile picture instantly
+    newNotif = await newNotif.populate("sender", "username profilePicture");
 
-    // =========================
-    // UPDATE FOLLOWER USER
-    // =========================
-
-    await User.findByIdAndUpdate(
-
-      followerId,
-
-      {
-        $addToSet: {
-
-          following:
-            followingId,
-        },
-      }
-    );
-
-    // =========================
-    // UPDATE FOLLOWING USER
-    // =========================
-
-    await User.findByIdAndUpdate(
-
-      followingId,
-
-      {
-        $addToSet: {
-
-          followers:
-            followerId,
-        },
-      }
-    );
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit("getNotification", newNotif); // Broadcast to socket
+    }
+    // ==========================================
 
     res.status(201).json({
-
       success: true,
-
-      message:
-        "User followed successfully",
-
+      message: "User followed successfully",
       data: follow,
     });
 
   } catch (error) {
-
     console.log(error);
-
-    res.status(500).json({
-
-      success: false,
-
-      message:
-        "Error while following user",
-
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Error while following user", error: error.message });
   }
 };
 
@@ -400,3 +317,4 @@ async (req, res) => {
     });
   }
 };
+

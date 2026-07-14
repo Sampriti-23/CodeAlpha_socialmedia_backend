@@ -1,4 +1,7 @@
 const Post = require("../models/Post");
+const User = require("../models/User");
+const Follow = require("../models/Follow"); 
+const Notification = require("../models/Notification");
 
 // ==============================
 // CREATE POST
@@ -9,11 +12,35 @@ exports.createPost = async (req, res) => {
 
     const post = await Post.create({
       author: req.user._id,
-      content: req.body.content,
-      image: req.body.image,
+      content: content,
+      image: image,
     });
+
     const populatedPost = await Post.findById(post._id)
       .populate("author", "username email profilePicture");
+
+    // ==========================================
+    // 🟢 LIVE NOTIFICATION LOGIC (NOTIFY FOLLOWERS)
+    // ==========================================
+    const followers = await Follow.find({ following: req.user._id });
+    const io = req.app.get("socketio");
+
+    followers.forEach(async (f) => {
+      let newNotif = await Notification.create({
+        receiver: f.follower, // Send to this follower
+        sender: req.user._id,
+        type: "new_post",
+        post: post._id,
+        message: `${populatedPost.author.username} added a new post.`
+      });
+
+      newNotif = await newNotif.populate("sender", "username profilePicture");
+
+      if (io) {
+        io.emit("getNotification", newNotif);
+      }
+    });
+    // ==========================================
 
     res.status(201).json({
       success: true,
@@ -22,12 +49,7 @@ exports.createPost = async (req, res) => {
 
   } catch (error) {
     console.log(error);
-
-    res.status(500).json({
-      success: false,
-      message: "Error creating post",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Error creating post", error: error.message });
   }
 };
 
@@ -189,103 +211,67 @@ exports.deletePost = async (req, res) => {
 // ==============================
 // LIKE / UNLIKE POST
 // ==============================
-exports.toggleLikePost =
-async (req, res) => {
-
+exports.toggleLikePost = async (req, res) => {
   try {
-
-    const { postId } =
-      req.params;
-
-    const post =
-      await Post.findById(
-        postId
-      );
+    const { postId } = req.params;
+    const post = await Post.findById(postId);
 
     if (!post) {
-
-      return res.status(404).json({
-
-        success: false,
-
-        message:
-          "Post not found",
-      });
+      return res.status(404).json({ success: false, message: "Post not found" });
     }
 
-    const userId =
-      req.user._id;
-
-    const alreadyLiked =
-      post.likes.some(
-
-        (id) =>
-
-          id.toString() ===
-          userId.toString()
-      );
+    const userId = req.user._id;
+    const alreadyLiked = post.likes.some((id) => id.toString() === userId.toString());
 
     // =====================
     // UNLIKE
     // =====================
-
     if (alreadyLiked) {
-
-      post.likes =
-        post.likes.filter(
-
-          (id) =>
-
-            id.toString() !==
-            userId.toString()
-        );
-
+      post.likes = post.likes.filter((id) => id.toString() !== userId.toString());
       await post.save();
-
-      return res.status(200).json({
-
-        success: true,
-
-        liked: false,
-
-        totalLikes:
-          post.likes.length,
-      });
+      return res.status(200).json({ success: true, liked: false, totalLikes: post.likes.length });
     }
 
     // =====================
     // LIKE
     // =====================
-
-    post.likes.push(
-      userId
-    );
-
+    post.likes.push(userId);
     await post.save();
 
+    // ==========================================
+    // 🟢 LIVE NOTIFICATION LOGIC (NOTIFY AUTHOR)
+    // ==========================================
+    // Don't send a notification if you like your own post
+    if (post.author.toString() !== userId.toString()) {
+      const currentUser = await User.findById(userId);
+      
+      let newNotif = await Notification.create({
+        receiver: post.author,
+        sender: userId,
+        type: "like",
+        post: post._id,
+        message: `${currentUser.username} liked your post.`
+      });
+
+      newNotif = await newNotif.populate("sender", "username profilePicture");
+      newNotif = await newNotif.populate("post", "image content");
+
+      const io = req.app.get("socketio");
+      if (io) {
+        io.emit("getNotification", newNotif);
+      }
+    }
+    // ==========================================
+
     res.status(200).json({
-
       success: true,
-
       liked: true,
-
-      totalLikes:
-        post.likes.length,
+      totalLikes: post.likes.length,
     });
 
   } catch (error) {
-
     console.log(error);
-
-    res.status(500).json({
-
-      success: false,
-
-      message:
-        "Error liking post",
-
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Error liking post", error: error.message });
   }
 };
 

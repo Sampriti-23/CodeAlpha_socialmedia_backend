@@ -31,17 +31,21 @@ const storySchema = new mongoose.Schema({
         }
     }],
 
+// ... inside your storySchema ...
     expiresAt: {
         type: Date,
-        default: Date.now
+        // 🟢 FIX 1: Set the expiration date to exactly 24 hours in the future
+        default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) 
     }
 }, {
     timestamps: true
 });
 
+// 🟢 FIX 2: Because the date is already set to 24 hours in the future, 
+// tell MongoDB to delete it exactly at that time (0 seconds after expiresAt)
 storySchema.index(
     { expiresAt: 1 },
-    { expireAfterSeconds: 86400 }
+    { expireAfterSeconds: 0 } 
 );
 
 module.exports = mongoose.model("Story", storySchema);

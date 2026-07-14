@@ -15,6 +15,7 @@ const followRoutes = require('./routes/followRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const storyRoutes = require('./routes/storyRoute');
+const notificationRoute = require('./routes/notificationRoute');
 
 dotenv.config();
 
@@ -59,8 +60,9 @@ io.on("connection", (socket) => {
   });
 });
 
-app.set("io", io);
-app.set("userSocketMap", userSocketMap);
+// 🟢 THE FIX: Changed "io" to "socketio" so it matches your controllers!
+app.set("socketio", io);
+app.set("userSocketMap", userSocketMap); // This is brilliant for targeted notifications
 // -----------------------
 
 connectDB();
@@ -97,6 +99,7 @@ app.use('/api/follow', followRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/stories', storyRoutes);
+app.use('/api/notifications', notificationRoute);
 
 const PORT = process.env.PORT || 8000;
 
