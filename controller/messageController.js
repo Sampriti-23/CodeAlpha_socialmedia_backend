@@ -8,11 +8,9 @@ const sendMessage = async (req, res) => {
     const { receiverId } = req.params;
     const senderId = req.user._id;
 
-   
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, receiverId] },
     });
-
 
     if (!conversation) {
       conversation = await Conversation.create({
@@ -33,13 +31,13 @@ const sendMessage = async (req, res) => {
 
     const populatedMessage = await Message.findById(newMessage._id)
       .populate("sender", "username profilePicture");
-   
-    const io = req.app.get("io");
-    const userSocketMap = req.app.get("userSocketMap");
-    
 
-    const receiverSocketId = userSocketMap[receiverId];
-    if (receiverSocketId) {
+    // 🟢 REAL-TIME EMIT TO RECEIVER
+    const io = req.app.get("io");
+    const getReceiverSocketId = req.app.get("getReceiverSocketId");
+    const receiverSocketId = getReceiverSocketId ? getReceiverSocketId(receiverId) : null;
+
+    if (receiverSocketId && io) {
       io.to(receiverSocketId).emit("newMessage", populatedMessage);
     }
 
@@ -55,7 +53,7 @@ const sendMessage = async (req, res) => {
   }
 };
 
-
+// 2. Get Messages
 const getMessages = async (req, res) => {
   try {
     const { userId: receiverId } = req.params;
@@ -69,7 +67,9 @@ const getMessages = async (req, res) => {
       return res.status(200).json({ success: true, data: [] });
     }
 
-    const messages = await Message.find({ conversationId: conversation._id });
+    // 🟢 FIX: Populate sender details so it matches sendMessage format
+    const messages = await Message.find({ conversationId: conversation._id })
+      .populate("sender", "username profilePicture");
 
     res.status(200).json({
       success: true,
@@ -83,19 +83,40 @@ const getMessages = async (req, res) => {
   }
 };
 
-
+// 3. Get Conversations
 const getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
     const conversations = await Conversation.find({
       participants: { $in: [userId] },
-    }) .populate("participants", "username profilePicture")
-      .sort({ updatedAt: -1 });
+    })
+      .populate("participants", "username profilePicture")
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conv) => {
+        const lastMsg = await Message.findOne({ conversationId: conv._id })
+          .sort({ createdAt: -1 });
+
+        const unreadCount = await Message.countDocuments({
+          conversationId: conv._id,
+          sender: { $ne: userId },
+          isRead: false,
+        });
+
+        return {
+          ...conv,
+          lastMessageObj: lastMsg,
+          unreadCount,
+        };
+      })
+    );
 
     res.status(200).json({
       success: true,
-      data: conversations,
+      data: conversationsWithUnread,
     });
   } catch (error) {
     res.status(500).json({
@@ -105,22 +126,32 @@ const getConversations = async (req, res) => {
   }
 };
 
+// 4. Mark Messages as Read
 const markMessagesAsRead = async (req, res) => {
   try {
     const { senderId } = req.params;
+    const currentUserId = req.user._id;
 
-    // 1. Verify senderId exists before querying MongoDB
     if (!senderId || senderId === "undefined") {
       return res.status(400).json({ success: false, message: "Invalid sender ID provided." });
     }
 
-    // 2. Update all unread messages sent by this friend
+    // 1. Update in MongoDB
     const updateResult = await Message.updateMany(
       { sender: senderId, isRead: false },
       { $set: { isRead: true } }
     );
 
-    // 3. Return success
+    // 🟢 2. FIX: EMIT REAL-TIME SOCKET EVENT TO THE SENDER
+    // Tells the original sender that currentUserId has opened and read their messages
+    const io = req.app.get("io");
+    const getReceiverSocketId = req.app.get("getReceiverSocketId");
+    const senderSocketId = getReceiverSocketId ? getReceiverSocketId(senderId) : null;
+
+    if (senderSocketId && io) {
+      io.to(senderSocketId).emit("messagesRead", { readerId: currentUserId });
+    }
+
     res.status(200).json({ 
       success: true, 
       message: "Messages marked as read",
@@ -128,7 +159,6 @@ const markMessagesAsRead = async (req, res) => {
     });
 
   } catch (error) {
-    // This logs the exact crash reason directly in your Node terminal
     console.error("❌ CRITICAL ERROR in /read/:senderId route:", error);
     res.status(500).json({ success: false, message: error.message });
   }

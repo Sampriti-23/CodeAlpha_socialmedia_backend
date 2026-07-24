@@ -1,12 +1,22 @@
 const Notification = require("../models/Notification");
 
-// Fetch logged-in user's notifications
+// ==============================
+// FETCH LOGGED-IN USER'S NOTIFICATIONS
+// ==============================
 exports.getNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find({ receiver: req.user._id })
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const notifications = await Notification.find({ receiver: userId })
       .populate("sender", "username profilePicture")
       .populate("post", "media")
-      .sort({ createdAt: -1 }); // Newest first
+      .sort({ createdAt: -1 }) // Newest first
+      .limit(30)               // 🟢 Limit to latest 30 notifications for speed
+      .lean();                 // 🟢 Returns plain JS objects for faster execution
 
     res.status(200).json({ success: true, data: notifications });
   } catch (error) {
@@ -14,13 +24,22 @@ exports.getNotifications = async (req, res) => {
   }
 };
 
-// Mark notifications as read when the user opens the dropdown
+// ==============================
+// MARK NOTIFICATIONS AS READ
+// ==============================
 exports.markAsRead = async (req, res) => {
   try {
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
     await Notification.updateMany(
-      { receiver: req.user._id, isRead: false },
-      { isRead: true }
+      { receiver: userId, isRead: false },
+      { $set: { isRead: true } }
     );
+
     res.status(200).json({ success: true, message: "Notifications marked as read" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

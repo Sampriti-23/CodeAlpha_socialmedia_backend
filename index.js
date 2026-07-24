@@ -21,6 +21,11 @@ dotenv.config();
 
 const app = express();
 
+// Standard Express Middlewares
+app.use(express.json());
+app.use(cors());
+
+// HTTP & Socket.IO Setup
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -37,15 +42,25 @@ const getReceiverSocketId = (receiverId) => {
   return userSocketMap[receiverId];
 };
 
+// 🟢 ATTACH TO EXPRESS APP (Accessible in controllers via req.app.get(...))
+app.set("io", io);
+app.set("userSocketMap", userSocketMap);
+app.set("getReceiverSocketId", getReceiverSocketId);
+
+// 🟢 SOCKET.IO CONNECTION HANDLER
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+  console.log("⚡ User connected:", socket.id);
 
   const userId = socket.handshake.query.userId;
+  
   if (userId && userId !== "undefined") {
     userSocketMap[userId] = socket.id;
   }
 
-  // 🟢 REAL-TIME READ RECEIPTS
+  // 🟢 1. Broadcast list of online user IDs to all connected clients
+  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+  // 🟢 2. REAL-TIME READ RECEIPTS
   socket.on("markAsRead", ({ senderId, receiverId }) => {
     const senderSocket = getReceiverSocketId(senderId); 
     
@@ -54,22 +69,21 @@ io.on("connection", (socket) => {
     }
   });
 
+  // 🟢 3. DISCONNECT HANDLER
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
-    delete userSocketMap[userId];
+    console.log("❌ User disconnected:", socket.id);
+    if (userId && userId !== "undefined") {
+      delete userSocketMap[userId];
+    }
+    // Broadcast updated online list after disconnect
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });
 
-// 🟢 THE FIX: Changed "io" to "socketio" so it matches your controllers!
-app.set("socketio", io);
-app.set("userSocketMap", userSocketMap); // This is brilliant for targeted notifications
-// -----------------------
-
+// Database Connection
 connectDB();
 
-app.use(express.json());
-app.use(cors());
-
+// Static file storage for uploads
 app.use(
   "/uploads",
   express.static(
@@ -80,18 +94,19 @@ app.use(
   )
 );
 
+// File Upload Route
 app.post("/api/upload", upload.single("file"), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: "Please upload a file" });
         }
-        // Return only the filename string to the frontend
         res.status(200).json(req.file.filename);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
 
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
