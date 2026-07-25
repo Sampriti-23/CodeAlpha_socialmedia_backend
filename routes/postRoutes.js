@@ -8,11 +8,14 @@ const {
   deletePost,
   toggleLikePost,
   getMyPosts,
+  getTimelinePosts,
+  getUserPosts
 } = require("../controller/postController");
 
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
+router.get("/timeline", authMiddleware, getTimelinePosts);
 
 router.post("/create", authMiddleware, createPost);
 
@@ -27,5 +30,7 @@ router.put("/update/:postId", authMiddleware, updatePost);
 router.delete("/delete/:postId", authMiddleware, deletePost);
 
 router.put("/like/:postId", authMiddleware, toggleLikePost);
+
+router.get("/user/:userId", authMiddleware, getUserPosts);
 
 module.exports = router;
