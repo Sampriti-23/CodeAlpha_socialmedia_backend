@@ -175,15 +175,24 @@ exports.getAllPosts = async (req, res) => {
 };
 
 // ==============================
-// GET SINGLE POST
+// GET SINGLE POST BY ID
 // ==============================
 exports.getSinglePost = async (req, res) => {
   try {
     const { postId } = req.params;
 
     const post = await Post.findById(postId)
-      .populate("author", "username email profilePicture")
-      .populate("likes", "username profilePicture");
+      .populate("author", "username profilePicture email")
+      .populate({
+        path: "likes",
+        select: "username profilePicture",
+        strictPopulate: false,
+      })
+      .populate({
+        path: "comments.user",
+        select: "username profilePicture",
+        strictPopulate: false,
+      });
 
     if (!post) {
       return res.status(404).json({
@@ -192,20 +201,19 @@ exports.getSinglePost = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: post,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({
+    console.error("❌ Error fetching single post:", error);
+    return res.status(500).json({
       success: false,
-      message: "Error fetching post",
+      message: "Error fetching single post",
       error: error.message,
     });
   }
 };
-
 // ==============================
 // UPDATE POST
 // ==============================
