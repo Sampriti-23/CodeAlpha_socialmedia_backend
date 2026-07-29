@@ -18,20 +18,15 @@ exports.getTimelinePosts = async (req, res) => {
       });
     }
 
-    // 1. Fetch user's following list from User model
     const currentUser = await User.findById(userId).select("following");
-
     if (!currentUser) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
     const userFollowingArray = currentUser.following || [];
-
-    // 2. Fetch following list from Follow collection
     const followDocs = await Follow.find({ follower: userId }).select("following");
     const followModelArray = followDocs.map((f) => f.following);
 
-    // 3. Combine current user ID + all followed user IDs
     const rawIds = [
       userId.toString(),
       ...userFollowingArray.map((id) => id.toString()),
@@ -39,8 +34,6 @@ exports.getTimelinePosts = async (req, res) => {
     ];
 
     const uniqueStringIds = [...new Set(rawIds)];
-
-    // Convert IDs to both String and ObjectId format
     const targetSearchIds = [];
     uniqueStringIds.forEach((idStr) => {
       targetSearchIds.push(idStr);
@@ -49,7 +42,6 @@ exports.getTimelinePosts = async (req, res) => {
       }
     });
 
-    // 4. Fetch posts (with strictPopulate: false to prevent Mongoose schema errors)
     const posts = await Post.find({
       $or: [
         { user: { $in: targetSearchIds } },
@@ -57,27 +49,10 @@ exports.getTimelinePosts = async (req, res) => {
         { author: { $in: targetSearchIds } },
       ],
     })
-      .populate({
-        path: "user",
-        select: "username profilePicture email",
-        strictPopulate: false,
-      })
-      .populate({
-        path: "userId",
-        select: "username profilePicture email",
-        strictPopulate: false,
-      })
-      .populate({
-        path: "author",
-        select: "username profilePicture email",
-        strictPopulate: false,
-      })
-      // 🟢 FIXED: POPULATE LIKES FOR TIMELINE POSTS
-      .populate({
-        path: "likes",
-        select: "username profilePicture",
-        strictPopulate: false,
-      })
+      .populate({ path: "user", select: "username profilePicture email", strictPopulate: false })
+      .populate({ path: "userId", select: "username profilePicture email", strictPopulate: false })
+      .populate({ path: "author", select: "username profilePicture email", strictPopulate: false })
+      .populate({ path: "likes", select: "username profilePicture", strictPopulate: false })
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -100,12 +75,15 @@ exports.getTimelinePosts = async (req, res) => {
 // ==============================
 exports.createPost = async (req, res) => {
   try {
-    const { content, image } = req.body;
+    const { content } = req.body;
+    
+    // Uses Cloudinary CDN URL from req.file.path
+    const imageUrl = req.file ? req.file.path : req.body.image || "";
 
     const post = await Post.create({
       author: req.user._id,
       content: content,
-      image: image,
+      image: imageUrl,
     });
 
     const populatedPost = await Post.findById(post._id).populate(
@@ -113,9 +91,6 @@ exports.createPost = async (req, res) => {
       "username email profilePicture"
     );
 
-    // ==========================================
-    // 🟢 LIVE NOTIFICATION LOGIC (NOTIFY FOLLOWERS)
-    // ==========================================
     const followers = await Follow.find({ following: req.user._id });
     const io = req.app.get("socketio");
 
@@ -183,28 +158,14 @@ exports.getSinglePost = async (req, res) => {
 
     const post = await Post.findById(postId)
       .populate("author", "username profilePicture email")
-      .populate({
-        path: "likes",
-        select: "username profilePicture",
-        strictPopulate: false,
-      })
-      .populate({
-        path: "comments.user",
-        select: "username profilePicture",
-        strictPopulate: false,
-      });
+      .populate({ path: "likes", select: "username profilePicture", strictPopulate: false })
+      .populate({ path: "comments.user", select: "username profilePicture", strictPopulate: false });
 
     if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: "Post not found",
-      });
+      return res.status(404).json({ success: false, message: "Post not found" });
     }
 
-    return res.status(200).json({
-      success: true,
-      data: post,
-    });
+    return res.status(200).json({ success: true, data: post });
   } catch (error) {
     console.error("❌ Error fetching single post:", error);
     return res.status(500).json({
@@ -214,33 +175,32 @@ exports.getSinglePost = async (req, res) => {
     });
   }
 };
+
 // ==============================
 // UPDATE POST
 // ==============================
 exports.updatePost = async (req, res) => {
   try {
     const { postId } = req.params;
-    const { content, image } = req.body;
+    const { content } = req.body;
 
     const post = await Post.findById(postId);
 
     if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: "Post not found",
-      });
+      return res.status(404).json({ success: false, message: "Post not found" });
     }
 
-    // Only author can update
     if (post.author.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized",
-      });
+      return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
-    post.content = content || post.content;
-    post.image = image || post.image;
+    post.content = content !== undefined ? content : post.content;
+    
+    if (req.file) {
+      post.image = req.file.path;
+    } else if (req.body.image) {
+      post.image = req.body.image;
+    }
 
     await post.save();
 
@@ -265,22 +225,14 @@ exports.updatePost = async (req, res) => {
 exports.deletePost = async (req, res) => {
   try {
     const { postId } = req.params;
-
     const post = await Post.findById(postId);
 
     if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: "Post not found",
-      });
+      return res.status(404).json({ success: false, message: "Post not found" });
     }
 
-    // Only author can delete
     if (post.author.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized",
-      });
+      return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
     await post.deleteOne();
@@ -314,18 +266,11 @@ exports.toggleLikePost = async (req, res) => {
     const userId = req.user._id;
     const alreadyLiked = post.likes.some((id) => id.toString() === userId.toString());
 
-    // =====================
-    // UNLIKE
-    // =====================
     if (alreadyLiked) {
       post.likes = post.likes.filter((id) => id.toString() !== userId.toString());
       await post.save();
 
-      // Fetch updated post with populated likes array
-      const updatedPost = await Post.findById(postId).populate(
-        "likes",
-        "username profilePicture"
-      );
+      const updatedPost = await Post.findById(postId).populate("likes", "username profilePicture");
 
       return res.status(200).json({
         success: true,
@@ -335,21 +280,11 @@ exports.toggleLikePost = async (req, res) => {
       });
     }
 
-    // =====================
-    // LIKE
-    // =====================
     post.likes.push(userId);
     await post.save();
 
-    // Fetch updated post with populated likes array
-    const updatedPost = await Post.findById(postId).populate(
-      "likes",
-      "username profilePicture"
-    );
+    const updatedPost = await Post.findById(postId).populate("likes", "username profilePicture");
 
-    // ==========================================
-    // 🟢 LIVE NOTIFICATION LOGIC (NOTIFY AUTHOR)
-    // ==========================================
     if (post.author.toString() !== userId.toString()) {
       const currentUser = await User.findById(userId);
 
@@ -391,11 +326,9 @@ exports.toggleLikePost = async (req, res) => {
 // ==============================
 exports.getMyPosts = async (req, res) => {
   try {
-    const posts = await Post.find({
-      author: req.user._id,
-    })
+    const posts = await Post.find({ author: req.user._id })
       .populate("author", "username email profilePicture")
-      .populate("likes", "username profilePicture") // 🟢 FIXED: POPULATE LIKES FOR USER POSTS
+      .populate("likes", "username profilePicture")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -424,11 +357,7 @@ exports.getUserPosts = async (req, res) => {
       $or: [{ author: userId }, { user: userId }, { userId: userId }],
     })
       .populate("author", "username email profilePicture")
-      .populate({
-        path: "likes",
-        select: "username profilePicture",
-        strictPopulate: false,
-      })
+      .populate({ path: "likes", select: "username profilePicture", strictPopulate: false })
       .sort({ createdAt: -1 });
 
     res.status(200).json({

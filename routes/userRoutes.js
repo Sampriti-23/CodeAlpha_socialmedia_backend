@@ -2,8 +2,8 @@ const express = require("express");
 
 const router = express.Router();
 
-const authMiddleware = require("../middleware/authMiddleware");
-
+const authMiddleware = require("../middleware/authmiddleware");
+const upload = require("../middleware/uploadmiddleware");
 const {
   getAllUsers,
   getSingleUser,
@@ -13,6 +13,7 @@ const {
   getUserStats,
 } = require("../controller/userController");
 
+
 router.get("/all", authMiddleware, getAllUsers);
 
 router.get("/me", authMiddleware, getMyProfile);
@@ -21,7 +22,7 @@ router.get("/:userId/stats", authMiddleware, getUserStats);
 
 router.get("/:userId", authMiddleware, getSingleUser);
 
-router.put("/update", authMiddleware, updateProfile);
+router.put("/update", authMiddleware,upload.single("file"), updateProfile);
 
 router.delete("/delete", authMiddleware, deleteUser);
 

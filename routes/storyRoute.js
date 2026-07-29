@@ -1,8 +1,7 @@
 const express = require("express");
 const { createstory, getStories, getStoryById, deleteStory,viewStory } = require("../controller/storyController");
-const authMiddleware = require("../middleware/authMiddleware");
-
-const upload = require("../middleware/uploadmiddleware"); 
+const authMiddleware = require("../middleware/authmiddleware");
+const upload = require("../middleware/uploadmiddleware");
 
 const router = express.Router();
 

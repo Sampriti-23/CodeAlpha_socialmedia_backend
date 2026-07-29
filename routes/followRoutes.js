@@ -8,7 +8,7 @@ const {
   checkFollowStatus,
 } = require("../controller/followController");
 
-const authMiddleware = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authmiddleware");
 const router = express.Router();
 
 router.post("/follow", authMiddleware, followUser);

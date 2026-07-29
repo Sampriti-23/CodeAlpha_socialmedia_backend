@@ -1,36 +1,49 @@
-const multer = require('multer');
-const path = require('path');
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-// 1. Configure Storage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        // Files will be saved in backend/public/images
-        cb(null, 'uploads');
-    },
-    filename: (req, file, cb) => {
-        // Creates a unique name: current timestamp + original file extension
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// 2. Filter files (Only allow images)
-const fileFilter = (req, file, cb) => {
-    const allowedFileTypes = /jpeg|jpg|png|webp/;
-    const isExtensionValid = allowedFileTypes.test(path.extname(file.originalname).toLowerCase());
-    const isMimeValid = allowedFileTypes.test(file.mimetype);
+// Configure Cloudinary Storage
+const storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "friendwave_media",
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    },
+});
 
-    if (isExtensionValid && isMimeValid) {
+// Filter files (Only allow images)
+const fileFilter = (req, file, cb) => {
+    const allowedFileTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+    ];
+
+    if (allowedFileTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error("Only .jpeg, .jpg, .png, or .webp files are allowed!"), false);
+        cb(
+            new Error("Only .jpeg, .jpg, .png, or .webp files are allowed!"),
+            false
+        );
     }
 };
 
-// 3. Initialize Multer
+// Initialize Multer
 const upload = multer({
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
-    fileFilter: fileFilter
+    storage,
+    fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+    },
 });
 
 module.exports = upload;

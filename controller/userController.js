@@ -2,185 +2,97 @@ const User = require("../models/User");
 const Follow = require("../models/Follow");
 const Post = require("../models/Post");
 
+// ==============================
+// GET ALL USERS
+// ==============================
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.find().select("-password");
-
-    res.status(200).json({
-      success: true,
-      data: users,
-    });
-
+    res.status(200).json({ success: true, data: users });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-const getSingleUser =
-async (req, res) => {
-
+// ==============================
+// GET SINGLE USER
+// ==============================
+const getSingleUser = async (req, res) => {
   try {
-
-    const user =
-      await User.findById(
-        req.params.userId
-      ).select("-password");
-
-    res.status(200).json({
-
-      success: true,
-
-      data: user,
-    });
-
+    const user = await User.findById(req.params.userId).select("-password");
+    res.status(200).json({ success: true, data: user });
   } catch (error) {
-
-    res.status(500).json({
-
-      success: false,
-
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-const getMyProfile =
-async (req, res) => {
 
+// ==============================
+// GET MY PROFILE
+// ==============================
+const getMyProfile = async (req, res) => {
   try {
-
-    const user =
-      await User.findById(
-        req.user._id
-      ).select("-password");
-
-    res.status(200).json({
-
-      success: true,
-
-      data: user,
-    });
-
+    const user = await User.findById(req.user._id).select("-password");
+    res.status(200).json({ success: true, data: user });
   } catch (error) {
-
-    res.status(500).json({
-
-      success: false,
-
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ==============================
+// UPDATE PROFILE
+// ==============================
 const updateProfile = async (req, res) => {
   try {
+    const profilePictureUrl = req.file ? req.file.path : req.body.profilePicture;
+
+    const updateFields = {};
+    if (req.body.bio !== undefined) updateFields.bio = req.body.bio;
+    if (profilePictureUrl) updateFields.profilePicture = profilePictureUrl;
+
     const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      updateFields,
+      { new: true }
+    ).select("-password");
 
-  req.user._id,
-
-  {
-    bio: req.body.bio,
-
-    profilePicture:
-    req.body.profilePicture,
-  },
-
-  {
-    returnDocument: "after",
-  }
-
-).select("-password");
-
-    res.status(200).json({
-      success: true,
-      data: updatedUser,
-    });
-
+    res.status(200).json({ success: true, data: updatedUser });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ==============================
+// DELETE USER
+// ==============================
 const deleteUser = async (req, res) => {
   try {
     await User.findByIdAndDelete(req.user._id);
-
-    res.status(200).json({
-      success: true,
-      message: "User deleted successfully",
-    });
-
+    res.status(200).json({ success: true, message: "User deleted successfully" });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-const getUserStats = async (
-  req,
-  res
-) => {
-
+// ==============================
+// GET USER STATS
+// ==============================
+const getUserStats = async (req, res) => {
   try {
+    const { userId } = req.params;
 
-    const { userId } =
-      req.params;
-
-    const followersCount =
-      await Follow.countDocuments({
-
-        following: userId,
-      });
-
-    const followingCount =
-      await Follow.countDocuments({
-
-        follower: userId,
-      });
-
-    const postCount =
-      await Post.countDocuments({
-
-        author: userId,
-      });
+    const followersCount = await Follow.countDocuments({ following: userId });
+    const followingCount = await Follow.countDocuments({ follower: userId });
+    const postCount = await Post.countDocuments({ author: userId });
 
     res.status(200).json({
-
       success: true,
-
       data: {
-
         followersCount,
-
         followingCount,
-
         postCount,
       },
     });
-
   } catch (error) {
-
-    res.status(500).json({
-
-      success: false,
-
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-module.exports = {
-  getAllUsers,
-  getSingleUser,
-  getMyProfile,
-  updateProfile,
-  deleteUser,
-  getUserStats,
-};
-

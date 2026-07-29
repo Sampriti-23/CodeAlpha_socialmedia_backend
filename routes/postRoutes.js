@@ -12,12 +12,13 @@ const {
   getUserPosts
 } = require("../controller/postController");
 
-const authMiddleware = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authmiddleware");
+const upload = require("../middleware/uploadmiddleware");
 
 const router = express.Router();
 router.get("/timeline", authMiddleware, getTimelinePosts);
 
-router.post("/create", authMiddleware, createPost);
+router.post("/create", authMiddleware, upload.single("image"), createPost);
 
 router.get("/all", authMiddleware, getAllPosts);
 
@@ -25,7 +26,7 @@ router.get("/myposts", authMiddleware, getMyPosts);
 
 router.get("/:postId", authMiddleware, getSinglePost);
 
-router.put("/update/:postId", authMiddleware, updatePost);
+router.put("/update/:postId", authMiddleware, upload.single("image"), updatePost);
 
 router.delete("/delete/:postId", authMiddleware, deletePost);
 

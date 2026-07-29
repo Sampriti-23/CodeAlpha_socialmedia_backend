@@ -1,7 +1,7 @@
 const express = require("express");
 // 🟢 Ensure 'createComment' is imported here
 const { createComment, getPostComments, deleteComment } = require("../controller/commentController"); 
-const authMiddleware = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authmiddleware");
 
 const router = express.Router();
 

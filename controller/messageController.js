@@ -163,10 +163,3 @@ const markMessagesAsRead = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-module.exports = {
-  sendMessage,
-  getMessages,
-  getConversations,
-  markMessagesAsRead,
-};
