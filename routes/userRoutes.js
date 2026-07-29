@@ -13,6 +13,15 @@ const {
   getUserStats,
 } = require("../controller/userController");
 
+console.log({
+  authMiddleware,
+  getAllUsers,
+  getSingleUser,
+  getMyProfile,
+  updateProfile,
+  deleteUser,
+  getUserStats,
+});
 
 router.get("/all", authMiddleware, getAllUsers);
 

@@ -2,7 +2,7 @@ const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 
 // 1. Send Message
-const sendMessage = async (req, res) => {
+exports.sendMessage = async (req, res) => {
   try {
     const { text } = req.body;
     const { receiverId } = req.params;
@@ -54,7 +54,7 @@ const sendMessage = async (req, res) => {
 };
 
 // 2. Get Messages
-const getMessages = async (req, res) => {
+exports.getMessages = async (req, res) => {
   try {
     const { userId: receiverId } = req.params;
     const senderId = req.user._id;
@@ -84,7 +84,7 @@ const getMessages = async (req, res) => {
 };
 
 // 3. Get Conversations
-const getConversations = async (req, res) => {
+exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
@@ -127,7 +127,7 @@ const getConversations = async (req, res) => {
 };
 
 // 4. Mark Messages as Read
-const markMessagesAsRead = async (req, res) => {
+exports.markMessagesAsRead = async (req, res) => {
   try {
     const { senderId } = req.params;
     const currentUserId = req.user._id;
@@ -163,3 +163,4 @@ const markMessagesAsRead = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

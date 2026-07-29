@@ -5,7 +5,7 @@ const Post = require("../models/Post");
 // ==============================
 // GET ALL USERS
 // ==============================
-const getAllUsers = async (req, res) => {
+exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find().select("-password");
     res.status(200).json({ success: true, data: users });
@@ -29,7 +29,7 @@ const getSingleUser = async (req, res) => {
 // ==============================
 // GET MY PROFILE
 // ==============================
-const getMyProfile = async (req, res) => {
+exports.getMyProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
     res.status(200).json({ success: true, data: user });
@@ -41,7 +41,7 @@ const getMyProfile = async (req, res) => {
 // ==============================
 // UPDATE PROFILE
 // ==============================
-const updateProfile = async (req, res) => {
+exports.updateProfile = async (req, res) => {
   try {
     const profilePictureUrl = req.file ? req.file.path : req.body.profilePicture;
 
@@ -64,7 +64,7 @@ const updateProfile = async (req, res) => {
 // ==============================
 // DELETE USER
 // ==============================
-const deleteUser = async (req, res) => {
+exports.deleteUser = async (req, res) => {
   try {
     await User.findByIdAndDelete(req.user._id);
     res.status(200).json({ success: true, message: "User deleted successfully" });
@@ -76,7 +76,7 @@ const deleteUser = async (req, res) => {
 // ==============================
 // GET USER STATS
 // ==============================
-const getUserStats = async (req, res) => {
+exports. getUserStats = async (req, res) => {
   try {
     const { userId } = req.params;
 
