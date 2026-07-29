@@ -17,7 +17,7 @@ exports.getAllUsers = async (req, res) => {
 // ==============================
 // GET SINGLE USER
 // ==============================
-const getSingleUser = async (req, res) => {
+exports.getSingleUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.userId).select("-password");
     res.status(200).json({ success: true, data: user });
