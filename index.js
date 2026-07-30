@@ -80,6 +80,11 @@ io.on("connection", (socket) => {
   });
 });
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://codealpha-socialmedia-forntend.onrender.com"
+];
+
 // Database Connection
 connectDB();
 
@@ -119,5 +124,5 @@ app.use('/api/notifications', notificationRoute);
 const PORT = process.env.PORT || 8000;
 
 server.listen(PORT, () => {
-  console.log(`FRIENDWAVE Backend running on http://localhost:${PORT}`);
+  console.log(`FRIENDWAVE Backend running on ${PORT}`);
 });
