@@ -41,17 +41,30 @@ exports.getMyProfile = async (req, res) => {
 // ==============================
 // UPDATE PROFILE
 // ==============================
+// ==============================
+// UPDATE PROFILE
+// ==============================
 exports.updateProfile = async (req, res) => {
   try {
-    const profilePictureUrl = req.file ? req.file.path : req.body.profilePicture;
-
     const updateFields = {};
-    if (req.body.bio !== undefined) updateFields.bio = req.body.bio;
-    if (profilePictureUrl) updateFields.profilePicture = profilePictureUrl;
+
+    // 1. If a file was uploaded, req.file.path contains the Cloudinary URL
+    if (req.file) {
+      updateFields.profilePicture = req.file.path; 
+    } 
+    // Fallback if passing profilePicture string in request body
+    else if (req.body.profilePicture) {
+      updateFields.profilePicture = req.body.profilePicture;
+    }
+
+    // 2. Handle bio updates from text fields
+    if (req.body.bio !== undefined) {
+      updateFields.bio = req.body.bio;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      updateFields,
+      { $set: updateFields },
       { new: true }
     ).select("-password");
 

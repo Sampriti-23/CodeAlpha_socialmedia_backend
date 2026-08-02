@@ -23,7 +23,7 @@ const app = express();
 
 // Standard Express Middlewares
 app.use(express.json());
-app.use(cors());
+// app.use(cors());
 
 // HTTP & Socket.IO Setup
 const server = http.createServer(app);
@@ -140,6 +140,6 @@ app.use('/api/notifications', notificationRoute);
 
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
