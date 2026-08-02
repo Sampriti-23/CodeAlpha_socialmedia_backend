@@ -23,7 +23,7 @@ const app = express();
 
 // Standard Express Middlewares
 app.use(express.json());
-// app.use(cors());
+app.use(cors());
 
 // HTTP & Socket.IO Setup
 const server = http.createServer(app);
