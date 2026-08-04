@@ -71,19 +71,34 @@ exports.getTimelinePosts = async (req, res) => {
 };
 
 // ==============================
-// CREATE POST
+// CREATE POST (IMAGE + VIDEO SUPPORT)
 // ==============================
 exports.createPost = async (req, res) => {
   try {
     const { content } = req.body;
-    
-    // Uses Cloudinary CDN URL from req.file.path
-    const imageUrl = req.file ? req.file.path : req.body.image || "";
+    let imageUrl = "";
+    let videoUrl = "";
+
+    if (req.file) {
+      const isVideo =
+        req.file.mimetype?.startsWith("video/") ||
+        req.file.path?.includes("/video/upload/");
+
+      if (isVideo) {
+        videoUrl = req.file.path;
+      } else {
+        imageUrl = req.file.path;
+      }
+    } else {
+      imageUrl = req.body.image || "";
+      videoUrl = req.body.video || "";
+    }
 
     const post = await Post.create({
       author: req.user._id,
       content: content,
       image: imageUrl,
+      video: videoUrl,
     });
 
     const populatedPost = await Post.findById(post._id).populate(
@@ -115,7 +130,7 @@ exports.createPost = async (req, res) => {
       data: populatedPost,
     });
   } catch (error) {
-    console.log(error);
+    console.error("❌ Create Post Error:", error);
     res.status(500).json({
       success: false,
       message: "Error creating post",
@@ -177,7 +192,7 @@ exports.getSinglePost = async (req, res) => {
 };
 
 // ==============================
-// UPDATE POST
+// UPDATE POST (IMAGE + VIDEO SUPPORT)
 // ==============================
 exports.updatePost = async (req, res) => {
   try {
@@ -195,11 +210,22 @@ exports.updatePost = async (req, res) => {
     }
 
     post.content = content !== undefined ? content : post.content;
-    
+
     if (req.file) {
-      post.image = req.file.path;
-    } else if (req.body.image) {
-      post.image = req.body.image;
+      const isVideo =
+        req.file.mimetype?.startsWith("video/") ||
+        req.file.path?.includes("/video/upload/");
+
+      if (isVideo) {
+        post.video = req.file.path;
+        post.image = "";
+      } else {
+        post.image = req.file.path;
+        post.video = "";
+      }
+    } else {
+      if (req.body.image !== undefined) post.image = req.body.image;
+      if (req.body.video !== undefined) post.video = req.body.video;
     }
 
     await post.save();
@@ -297,7 +323,7 @@ exports.toggleLikePost = async (req, res) => {
       });
 
       newNotif = await newNotif.populate("sender", "username profilePicture");
-      newNotif = await newNotif.populate("post", "image content");
+      newNotif = await newNotif.populate("post", "image video content");
 
       const io = req.app.get("socketio");
       if (io) {

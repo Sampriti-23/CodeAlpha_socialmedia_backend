@@ -14,17 +14,18 @@ const storage = new CloudinaryStorage({
     cloudinary,
     params: {
         folder: "friendwave_media",
-        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+        allowed_formats: ["jpg", "jpeg", "png", "webp","mp4"],
     },
 });
 
-// Filter files (Only allow images)
+// Filter files (Only allow images and videos)
 const fileFilter = (req, file, cb) => {
     const allowedFileTypes = [
         "image/jpeg",
         "image/jpg",
         "image/png",
         "image/webp",
+        "video/mp4",
     ];
 
     if (allowedFileTypes.includes(file.mimetype)) {
@@ -42,7 +43,7 @@ const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
+        fileSize: 100 * 1024 * 1024, // 100MB
     },
 });
 
