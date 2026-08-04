@@ -14,6 +14,7 @@ const storage = new CloudinaryStorage({
     cloudinary,
     params: {
         folder: "friendwave_media",
+        resource_type: isVideo ? "video" : "image",
         allowed_formats: ["jpg", "jpeg", "png", "webp","mp4"],
     },
 });
@@ -43,7 +44,7 @@ const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 100 * 1024 * 1024, // 100MB
+        fileSize: 45 * 1024 * 1024, // 45MB
     },
 });
 

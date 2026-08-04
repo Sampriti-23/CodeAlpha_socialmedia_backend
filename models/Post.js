@@ -20,6 +20,11 @@ const PostSchema = new mongoose.Schema({
     default: "",
   },
 
+  video: {
+      type: String, // 🟢 Ensure video string field exists
+      default: "",
+    },
+
   likes: [
     {
       type: mongoose.Schema.Types.ObjectId,
