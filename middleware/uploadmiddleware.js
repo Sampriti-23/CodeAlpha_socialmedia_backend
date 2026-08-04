@@ -12,11 +12,15 @@ cloudinary.config({
 // Configure Cloudinary Storage
 const storage = new CloudinaryStorage({
     cloudinary,
-    params: {
+    params: async (req, file) => {
+    // 🟢 Define isVideo inside the params callback where 'file' exists
+    const isVideo = file.mimetype ? file.mimetype.startsWith("video/") : false;
+    return {
         folder: "friendwave_media",
         resource_type: isVideo ? "video" : "image",
         allowed_formats: ["jpg", "jpeg", "png", "webp","mp4"],
-    },
+    };
+},
 });
 
 // Filter files (Only allow images and videos)
