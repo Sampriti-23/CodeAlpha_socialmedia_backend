@@ -20,6 +20,9 @@ exports.getAllUsers = async (req, res) => {
 exports.getSingleUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
     res.status(200).json({ success: true, data: user });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -41,25 +44,23 @@ exports.getMyProfile = async (req, res) => {
 // ==============================
 // UPDATE PROFILE
 // ==============================
-// ==============================
-// UPDATE PROFILE
-// ==============================
 exports.updateProfile = async (req, res) => {
   try {
     const updateFields = {};
 
-    // 1. If a file was uploaded, req.file.path contains the Cloudinary URL
+    // 1. If file uploaded, store Cloudinary URL
     if (req.file) {
-      updateFields.profilePicture = req.file.path; 
-    } 
-    // Fallback if passing profilePicture string in request body
-    else if (req.body.profilePicture) {
+      updateFields.profilePicture = req.file.path;
+    } else if (req.body.profilePicture) {
       updateFields.profilePicture = req.body.profilePicture;
     }
 
-    // 2. Handle bio updates from text fields
+    // 2. Handle text fields
     if (req.body.bio !== undefined) {
       updateFields.bio = req.body.bio;
+    }
+    if (req.body.username !== undefined) {
+      updateFields.username = req.body.username;
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -69,6 +70,27 @@ exports.updateProfile = async (req, res) => {
     ).select("-password");
 
     res.status(200).json({ success: true, data: updatedUser });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==============================
+// REMOVE PROFILE PICTURE
+// ==============================
+exports.removeProfilePicture = async (req, res) => {
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { profilePicture: "" } },
+      { new: true }
+    ).select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: "Profile picture removed successfully",
+      data: updatedUser,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -89,7 +111,7 @@ exports.deleteUser = async (req, res) => {
 // ==============================
 // GET USER STATS
 // ==============================
-exports. getUserStats = async (req, res) => {
+exports.getUserStats = async (req, res) => {
   try {
     const { userId } = req.params;
 

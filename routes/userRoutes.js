@@ -33,6 +33,8 @@ router.get("/:userId", authMiddleware, getSingleUser);
 
 router.put("/update", authMiddleware,upload.single("file"), updateProfile);
 
+router.put("/remove-profile-picture", authMiddleware, removeProfilePicture);
+
 router.delete("/delete", authMiddleware, deleteUser);
 
 
