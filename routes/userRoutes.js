@@ -11,6 +11,7 @@ const {
   updateProfile,
   deleteUser,
   getUserStats,
+  removeProfilePicture,
 } = require("../controller/userController");
 
 console.log({
@@ -21,6 +22,7 @@ console.log({
   updateProfile,
   deleteUser,
   getUserStats,
+  removeProfilePicture,
 });
 
 router.get("/all", authMiddleware, getAllUsers);
