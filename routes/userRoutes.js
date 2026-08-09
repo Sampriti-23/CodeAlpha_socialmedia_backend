@@ -1,8 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
+// Middlewares
 const authMiddleware = require("../middleware/authmiddleware");
 const upload = require("../middleware/uploadmiddleware");
+
+// Controllers
 const {
   getAllUsers,
   getSingleUser,
@@ -23,11 +26,11 @@ router.get("/:userId/stats", authMiddleware, getUserStats);
 router.get("/:userId", authMiddleware, getSingleUser);
 
 // ==============================
-// PROFILE UPDATES & PICTURE REMOVAL
+// PROFILE MANAGEMENT
 // ==============================
 router.put("/update", authMiddleware, upload.single("file"), updateProfile);
 
-// Supports PUT or DELETE for resetting profile picture to default
+// Handles both PUT and DELETE for removing profile picture
 router.put("/remove-profile-picture", authMiddleware, removeProfilePicture);
 router.delete("/remove-profile-picture", authMiddleware, removeProfilePicture);
 

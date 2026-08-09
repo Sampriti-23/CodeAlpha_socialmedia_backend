@@ -1,9 +1,25 @@
 const User = require("../models/User");
 const Follow = require("../models/Follow");
 const Post = require("../models/Post");
+const cloudinary = require("../config/cloudinary"); // আপনার Cloudinary configuration path অনুযায়ী adjust করুন
 
-// Default profile picture URL (Replace with your actual hosted image or default asset path)
+// Default profile picture URL
 const DEFAULT_PROFILE_PICTURE = "https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png";
+
+// Cloudinary URL থেকে Public ID বের করার Helper function
+const getPublicIdFromUrl = (url) => {
+  if (!url) return null;
+  const parts = url.split("/");
+  const fileName = parts[parts.length - 1];
+  const publicId = fileName.split(".")[0];
+  
+  // Image যদি কোনো specific folder-এ থাকে (যেমন: "profiles/sample_id")
+  const folderName = parts[parts.length - 2];
+  if (folderName && folderName !== "upload" && !folderName.startsWith("v")) {
+    return `${folderName}/${publicId}`;
+  }
+  return publicId;
+};
 
 // ==============================
 // GET ALL USERS
@@ -55,7 +71,7 @@ exports.updateProfile = async (req, res) => {
     if (req.file) {
       updateFields.profilePicture = req.file.path;
     } 
-    // 2. Text payload - reset to default if empty string or explicitly requested
+    // 2. Text payload - reset to default if empty string
     else if (typeof req.body.profilePicture === "string") {
       updateFields.profilePicture = req.body.profilePicture.trim() === "" 
         ? DEFAULT_PROFILE_PICTURE 
@@ -80,19 +96,34 @@ exports.updateProfile = async (req, res) => {
 };
 
 // ==============================
-// DELETE PROFILE PICTURE
+// REMOVE / DELETE PROFILE PICTURE (WITH CLOUDINARY DESTROY)
 // ==============================
-exports.deleteProfilePicture = async (req, res) => {
+exports.removeProfilePicture = async (req, res) => {
   try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { $set: { profilePicture: DEFAULT_PROFILE_PICTURE } },
-      { new: true }
-    ).select("-password");
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // 1. Cloudinary থেকে আগের ছবিটি permanent delete/destroy করা
+    if (user.profilePicture && user.profilePicture !== DEFAULT_PROFILE_PICTURE) {
+      const publicId = getPublicIdFromUrl(user.profilePicture);
+      if (publicId) {
+        await cloudinary.uploader.destroy(publicId);
+      }
+    }
+
+    // 2. Database-এ default picture সেট করা
+    user.profilePicture = DEFAULT_PROFILE_PICTURE;
+    await user.save();
+
+    // 3. Updated user object রিটার্ন করা (password ছাড়া)
+    const updatedUser = await User.findById(req.user._id).select("-password");
 
     res.status(200).json({
       success: true,
-      message: "Profile picture deleted successfully. Reset to default.",
+      message: "Profile picture deleted from Cloudinary and reset to default.",
       data: updatedUser,
     });
   } catch (error) {
