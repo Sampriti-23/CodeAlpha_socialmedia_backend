@@ -2,6 +2,9 @@ const User = require("../models/User");
 const Follow = require("../models/Follow");
 const Post = require("../models/Post");
 
+// Default profile picture URL (Replace with your actual hosted image or default asset path)
+const DEFAULT_PROFILE_PICTURE = "https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png";
+
 // ==============================
 // GET ALL USERS
 // ==============================
@@ -44,7 +47,6 @@ exports.getMyProfile = async (req, res) => {
 // ==============================
 // UPDATE PROFILE
 // ==============================
-
 exports.updateProfile = async (req, res) => {
   try {
     const updateFields = {};
@@ -53,9 +55,11 @@ exports.updateProfile = async (req, res) => {
     if (req.file) {
       updateFields.profilePicture = req.file.path;
     } 
-    // 2. Text payload - explicitly check for string type to accept ""
+    // 2. Text payload - reset to default if empty string or explicitly requested
     else if (typeof req.body.profilePicture === "string") {
-      updateFields.profilePicture = req.body.profilePicture;
+      updateFields.profilePicture = req.body.profilePicture.trim() === "" 
+        ? DEFAULT_PROFILE_PICTURE 
+        : req.body.profilePicture;
     }
 
     // 3. Bio update
@@ -70,6 +74,27 @@ exports.updateProfile = async (req, res) => {
     ).select("-password");
 
     res.status(200).json({ success: true, data: updatedUser });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==============================
+// DELETE PROFILE PICTURE
+// ==============================
+exports.deleteProfilePicture = async (req, res) => {
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { profilePicture: DEFAULT_PROFILE_PICTURE } },
+      { new: true }
+    ).select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: "Profile picture deleted successfully. Reset to default.",
+      data: updatedUser,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -105,6 +130,26 @@ exports.getUserStats = async (req, res) => {
         followingCount,
         postCount,
       },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==============================
+// DEACTIVATE ACCOUNT
+// ==============================
+exports.deactivateAccount = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { isDeactivated: true } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Account deactivated successfully.",
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

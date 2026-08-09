@@ -27,6 +27,8 @@ bio:{ type: String, maxlength: 200 },
         "https://cdn-icons-png.flaticon.com/512/149/149071.png",
     },
 
+    isDeactivated: { type: Boolean, default: false },
+
     followers: [
       {
         type: mongoose.Schema.Types.ObjectId,
