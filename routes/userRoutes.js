@@ -14,17 +14,6 @@ const {
   removeProfilePicture,
 } = require("../controller/userController");
 
-console.log({
-  authMiddleware,
-  getAllUsers,
-  getSingleUser,
-  getMyProfile,
-  updateProfile,
-  deleteUser,
-  getUserStats,
-  removeProfilePicture,
-});
-
 router.get("/all", authMiddleware, getAllUsers);
 
 router.get("/me", authMiddleware, getMyProfile);

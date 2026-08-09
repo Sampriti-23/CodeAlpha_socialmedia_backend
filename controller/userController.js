@@ -44,23 +44,23 @@ exports.getMyProfile = async (req, res) => {
 // ==============================
 // UPDATE PROFILE
 // ==============================
+
 exports.updateProfile = async (req, res) => {
   try {
     const updateFields = {};
 
-    // 1. If file uploaded, store Cloudinary URL
+    // 1. New file upload via Cloudinary / Multer
     if (req.file) {
       updateFields.profilePicture = req.file.path;
-    } else if (req.body.profilePicture) {
+    } 
+    // 2. Text payload - explicitly check for string type to accept ""
+    else if (typeof req.body.profilePicture === "string") {
       updateFields.profilePicture = req.body.profilePicture;
     }
 
-    // 2. Handle text fields
-    if (req.body.bio !== undefined) {
+    // 3. Bio update
+    if (typeof req.body.bio === "string") {
       updateFields.bio = req.body.bio;
-    }
-    if (req.body.username !== undefined) {
-      updateFields.username = req.body.username;
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -70,27 +70,6 @@ exports.updateProfile = async (req, res) => {
     ).select("-password");
 
     res.status(200).json({ success: true, data: updatedUser });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// ==============================
-// REMOVE PROFILE PICTURE
-// ==============================
-exports.removeProfilePicture = async (req, res) => {
-  try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { $set: { profilePicture: "" } },
-      { new: true }
-    ).select("-password");
-
-    res.status(200).json({
-      success: true,
-      message: "Profile picture removed successfully",
-      data: updatedUser,
-    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
