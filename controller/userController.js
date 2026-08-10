@@ -8,17 +8,24 @@ const DEFAULT_PROFILE_PICTURE = "https://res.cloudinary.com/demo/image/upload/v1
 
 // Cloudinary URL থেকে Public ID বের করার Helper function
 const getPublicIdFromUrl = (url) => {
-  if (!url) return null;
-  const parts = url.split("/");
-  const fileName = parts[parts.length - 1];
-  const publicId = fileName.split(".")[0];
-  
-  // Image যদি কোনো specific folder-এ থাকে (যেমন: "profiles/sample_id")
-  const folderName = parts[parts.length - 2];
-  if (folderName && folderName !== "upload" && !folderName.startsWith("v")) {
-    return `${folderName}/${publicId}`;
+  if (!url || typeof url !== "string") return null;
+  if (!url.includes("res.cloudinary.com")) return null;
+
+  const uploadIndex = url.indexOf("/upload/");
+  if (uploadIndex === -1) return null;
+
+  let pathAfterUpload = url.substring(uploadIndex + "/upload/".length);
+
+  // version string (e.g. v1723234234/ or v1/) রিমুভ করা
+  pathAfterUpload = pathAfterUpload.replace(/^v\d+\//, "");
+
+  // File extension (.jpg, .png, .webp etc.) রিমুভ করা
+  const lastDotIndex = pathAfterUpload.lastIndexOf(".");
+  if (lastDotIndex !== -1) {
+    pathAfterUpload = pathAfterUpload.substring(0, lastDotIndex);
   }
-  return publicId;
+
+  return pathAfterUpload;
 };
 
 // ==============================
@@ -69,6 +76,23 @@ exports.updateProfile = async (req, res) => {
 
     // 1. New file upload via Cloudinary / Multer
     if (req.file) {
+      // Clean up previous Cloudinary avatar if custom image exists
+      const existingUser = await User.findById(req.user._id);
+      if (
+        existingUser?.profilePicture &&
+        existingUser.profilePicture !== DEFAULT_PROFILE_PICTURE &&
+        !existingUser.profilePicture.includes("default-avatar")
+      ) {
+        try {
+          const oldPublicId = getPublicIdFromUrl(existingUser.profilePicture);
+          if (oldPublicId && oldPublicId !== "default-avatar") {
+            await cloudinary.uploader.destroy(oldPublicId);
+          }
+        } catch (cloudinaryErr) {
+          console.error("Cloudinary destroy warning during avatar update:", cloudinaryErr.message);
+        }
+      }
+
       updateFields.profilePicture = req.file.path;
     } 
     // 2. Text payload - reset to default if empty string
@@ -107,10 +131,14 @@ exports.removeProfilePicture = async (req, res) => {
     }
 
     // 1. Cloudinary থেকে আগের ছবিটি permanent delete/destroy করা
-    if (user.profilePicture && user.profilePicture !== DEFAULT_PROFILE_PICTURE) {
+    if (
+      user.profilePicture &&
+      user.profilePicture !== DEFAULT_PROFILE_PICTURE &&
+      !user.profilePicture.includes("default-avatar")
+    ) {
       try {
         const publicId = getPublicIdFromUrl(user.profilePicture);
-        if (publicId) {
+        if (publicId && publicId !== "default-avatar") {
           await cloudinary.uploader.destroy(publicId);
         }
       } catch (cloudinaryErr) {
