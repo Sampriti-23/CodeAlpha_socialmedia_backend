@@ -108,9 +108,13 @@ exports.removeProfilePicture = async (req, res) => {
 
     // 1. Cloudinary থেকে আগের ছবিটি permanent delete/destroy করা
     if (user.profilePicture && user.profilePicture !== DEFAULT_PROFILE_PICTURE) {
-      const publicId = getPublicIdFromUrl(user.profilePicture);
-      if (publicId) {
-        await cloudinary.uploader.destroy(publicId);
+      try {
+        const publicId = getPublicIdFromUrl(user.profilePicture);
+        if (publicId) {
+          await cloudinary.uploader.destroy(publicId);
+        }
+      } catch (cloudinaryErr) {
+        console.error("Cloudinary destroy warning:", cloudinaryErr.message);
       }
     }
 

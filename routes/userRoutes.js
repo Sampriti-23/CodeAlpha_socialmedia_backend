@@ -22,8 +22,6 @@ const {
 // ==============================
 router.get("/all", authMiddleware, getAllUsers);
 router.get("/me", authMiddleware, getMyProfile);
-router.get("/:userId/stats", authMiddleware, getUserStats);
-router.get("/:userId", authMiddleware, getSingleUser);
 
 // ==============================
 // PROFILE MANAGEMENT
@@ -39,5 +37,11 @@ router.delete("/remove-profile-picture", authMiddleware, removeProfilePicture);
 // ==============================
 router.put("/deactivate", authMiddleware, deactivateAccount);
 router.delete("/delete", authMiddleware, deleteUser);
+
+// ==============================
+// USER BY ID ROUTES
+// ==============================
+router.get("/:userId/stats", authMiddleware, getUserStats);
+router.get("/:userId", authMiddleware, getSingleUser);
 
 module.exports = router;

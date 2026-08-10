@@ -23,8 +23,7 @@ bio:{ type: String, maxlength: 200 },
 
     profilePicture: {
       type: String,
-      default:
-        "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+      default: null,
     },
 
     isDeactivated: { type: Boolean, default: false },

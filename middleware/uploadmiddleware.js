@@ -1,26 +1,20 @@
 const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
+const cloudinary = require("../config/cloudinary");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-// Configure Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 // Configure Cloudinary Storage
 const storage = new CloudinaryStorage({
     cloudinary,
     params: async (req, file) => {
-    // 🟢 Define isVideo inside the params callback where 'file' exists
-    const isVideo = file.mimetype ? file.mimetype.startsWith("video/") : false;
-    return {
-        folder: "friendwave_media",
-        resource_type: isVideo ? "video" : "image",
-        allowed_formats: ["jpg", "jpeg", "png", "webp","mp4"],
-    };
-},
+
+        const isVideo = file.mimetype ? file.mimetype.startsWith("video/") : false;
+        return {
+            folder: "friendwave_media",
+            resource_type: isVideo ? "video" : "image",
+            allowed_formats: ["jpg", "jpeg", "png", "webp", "mp4"],
+        };
+    },
 });
 
 // Filter files (Only allow images and videos)
