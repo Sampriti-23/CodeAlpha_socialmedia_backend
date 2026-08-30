@@ -15,6 +15,9 @@ const {
   getUserStats,
   removeProfilePicture,
   deactivateAccount,
+  changePassword,
+  changeUsername,
+  changeEmail,
 } = require("../controller/userController");
 
 // ==============================
@@ -33,8 +36,11 @@ router.put("/remove-profile-picture", authMiddleware, removeProfilePicture);
 router.delete("/remove-profile-picture", authMiddleware, removeProfilePicture);
 
 // ==============================
-// ACCOUNT MANAGEMENT
+// ACCOUNT & CREDENTIALS MANAGEMENT
 // ==============================
+router.put("/change-password", authMiddleware, changePassword);
+router.put("/change-username", authMiddleware, changeUsername);
+router.put("/change-email", authMiddleware, changeEmail);
 router.put("/deactivate", authMiddleware, deactivateAccount);
 router.delete("/delete", authMiddleware, deleteUser);
 

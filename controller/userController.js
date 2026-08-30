@@ -1,10 +1,11 @@
 const User = require("../models/User");
 const Follow = require("../models/Follow");
 const Post = require("../models/Post");
+const bcrypt = require("bcryptjs");
 const cloudinary = require("../config/cloudinary"); // আপনার Cloudinary configuration path অনুযায়ী adjust করুন
 
 // Default profile picture URL
-const DEFAULT_PROFILE_PICTURE = "https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png";
+const DEFAULT_PROFILE_PICTURE = "";
 
 // Cloudinary URL থেকে Public ID বের করার Helper function
 const getPublicIdFromUrl = (url) => {
@@ -107,6 +108,46 @@ exports.updateProfile = async (req, res) => {
       updateFields.bio = req.body.bio;
     }
 
+    // 4. Username update (if provided)
+    if (typeof req.body.username === "string" && req.body.username.trim() !== "") {
+      const trimmedUsername = req.body.username.trim();
+      const existingUser = await User.findOne({
+        username: { $regex: new RegExp(`^${trimmedUsername}$`, "i") },
+        _id: { $ne: req.user._id },
+      });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Username is already taken",
+        });
+      }
+      updateFields.username = trimmedUsername;
+    }
+
+    // 5. Email update (if provided)
+    if (typeof req.body.email === "string" && req.body.email.trim() !== "") {
+      const trimmedEmail = req.body.email.trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Please provide a valid email address",
+        });
+      }
+
+      const existingUser = await User.findOne({
+        email: trimmedEmail,
+        _id: { $ne: req.user._id },
+      });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is already in use by another account",
+        });
+      }
+      updateFields.email = trimmedEmail;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updateFields },
@@ -114,6 +155,208 @@ exports.updateProfile = async (req, res) => {
     ).select("-password");
 
     res.status(200).json({ success: true, data: updatedUser });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==============================
+// CHANGE PASSWORD
+// ==============================
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, oldPassword, newPassword, confirmPassword } = req.body;
+    const existingPasswordInput = currentPassword || oldPassword;
+
+    if (!existingPasswordInput || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password and confirm password do not match",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Check if current password matches
+    const isMatch = await bcrypt.compare(existingPasswordInput, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    // Prevent reusing identical password
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password cannot be the same as your current password",
+      });
+    }
+
+    // Hash and save new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==============================
+// CHANGE USERNAME
+// ==============================
+exports.changeUsername = async (req, res) => {
+  try {
+    const newUsername = (req.body.newUsername || req.body.username || "").trim();
+
+    if (!newUsername) {
+      return res.status(400).json({
+        success: false,
+        message: "New username is required",
+      });
+    }
+
+    if (newUsername.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "Username must be at least 3 characters long",
+      });
+    }
+
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (currentUser.username.toLowerCase() === newUsername.toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        message: "New username must be different from current username",
+      });
+    }
+
+    // Check if new username is already taken by another user (case-insensitive)
+    const existingUser = await User.findOne({
+      username: { $regex: new RegExp(`^${newUsername}$`, "i") },
+      _id: { $ne: req.user._id },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Username is already taken. Please choose a different one.",
+      });
+    }
+
+    currentUser.username = newUsername;
+    await currentUser.save();
+
+    const updatedUser = await User.findById(req.user._id).select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: "Username updated successfully",
+      data: updatedUser,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==============================
+// CHANGE EMAIL
+// ==============================
+exports.changeEmail = async (req, res) => {
+  try {
+    const newEmail = (req.body.newEmail || req.body.email || "").trim().toLowerCase();
+    const { password } = req.body;
+
+    if (!newEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "New email address is required",
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address",
+      });
+    }
+
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // If password confirmation is provided, verify it
+    if (password) {
+      const isMatch = await bcrypt.compare(password, currentUser.password);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          message: "Incorrect password",
+        });
+      }
+    }
+
+    if (currentUser.email.toLowerCase() === newEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "New email must be different from current email",
+      });
+    }
+
+    // Check if new email is already taken by another user
+    const existingUser = await User.findOne({
+      email: newEmail,
+      _id: { $ne: req.user._id },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already in use by another account",
+      });
+    }
+
+    currentUser.email = newEmail;
+    await currentUser.save();
+
+    const updatedUser = await User.findById(req.user._id).select("-password");
+
+    res.status(200).json({
+      success: true,
+      message: "Email updated successfully",
+      data: updatedUser,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -147,7 +390,7 @@ exports.removeProfilePicture = async (req, res) => {
     }
 
     // 2. Database-এ default picture সেট করা
-    user.profilePicture = DEFAULT_PROFILE_PICTURE;
+    user.profilePicture = "";
     await user.save();
 
     // 3. Updated user object রিটার্ন করা (password ছাড়া)
