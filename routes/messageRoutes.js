@@ -15,6 +15,7 @@ const {
 
 router.get("/conversations", authMiddleware, getConversations);
 router.get("/unread/count", authMiddleware, getUnreadCount);
+router.get("/unread-count", authMiddleware, getUnreadCount);
 router.get("/:userId", authMiddleware, getMessages);
 
 router.post("/send/:receiverId", authMiddleware, sendMessage);

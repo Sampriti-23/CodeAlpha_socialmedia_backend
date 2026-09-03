@@ -6,5 +6,6 @@ const router = express.Router();
 router.get("/", authMiddleware, getNotifications);
 router.put("/read", authMiddleware, markAsRead);
 router.get("/unread/count", authMiddleware, getUnreadCount);
+router.get("/unread-count", authMiddleware, getUnreadCount);
 
 module.exports = router;

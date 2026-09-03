@@ -18,11 +18,14 @@ const {
   changePassword,
   changeUsername,
   changeEmail,
+  getUnreadBadgeCounts,
 } = require("../controller/userController");
 
 // ==============================
 // GET ROUTES
 // ==============================
+router.get("/badge-counts", authMiddleware, getUnreadBadgeCounts);
+router.get("/unread-counts", authMiddleware, getUnreadBadgeCounts);
 router.get("/all", authMiddleware, getAllUsers);
 router.get("/me", authMiddleware, getMyProfile);
 

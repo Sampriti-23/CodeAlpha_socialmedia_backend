@@ -44,6 +44,7 @@ const getReceiverSocketId = (receiverId) => {
 
 // 🟢 ATTACH TO EXPRESS APP (Accessible in controllers via req.app.get(...))
 app.set("io", io);
+app.set("socketio", io);
 app.set("userSocketMap", userSocketMap);
 app.set("getReceiverSocketId", getReceiverSocketId);
 

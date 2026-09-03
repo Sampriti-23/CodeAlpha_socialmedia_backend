@@ -1,6 +1,9 @@
 const User = require("../models/User");
 const Follow = require("../models/Follow");
 const Post = require("../models/Post");
+const Notification = require("../models/Notification");
+const Conversation = require("../models/Conversation");
+const Message = require("../models/Message");
 const bcrypt = require("bcryptjs");
 const cloudinary = require("../config/cloudinary"); // আপনার Cloudinary configuration path অনুযায়ী adjust করুন
 
@@ -456,6 +459,64 @@ exports.deactivateAccount = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Account deactivated successfully.",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ==============================
+// GET UNREAD BADGE COUNTS (NOTIFICATIONS & CHAT/MESSAGES)
+// ==============================
+exports.getUnreadBadgeCounts = async (req, res) => {
+  try {
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // 1. Notification unread count
+    const unreadNotificationsCount = await Notification.countDocuments({
+      receiver: userId,
+      isRead: false,
+    });
+
+    // 2. Find user's conversations
+    const userConversations = await Conversation.find({
+      participants: userId,
+    }).select("_id");
+
+    const conversationIds = userConversations.map((c) => c._id);
+
+    let totalUnreadMessages = 0;
+    let unreadChatCount = 0;
+    let unreadSenders = [];
+
+    if (conversationIds.length > 0) {
+      const messageFilter = {
+        conversationId: { $in: conversationIds },
+        sender: { $ne: userId },
+        isRead: false,
+      };
+
+      totalUnreadMessages = await Message.countDocuments(messageFilter);
+      unreadSenders = await Message.distinct("sender", messageFilter);
+      unreadChatCount = unreadSenders.length;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        unreadNotificationsCount,
+        unreadNotificationCount: unreadNotificationsCount,
+        unreadCount: unreadChatCount,
+        unreadChatCount,             // Count of users who sent new messages
+        unreadUsersCount: unreadChatCount,
+        totalUnreadMessages,         // Total unread messages count
+        unreadSenders,
+        totalBadges: unreadNotificationsCount + unreadChatCount,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

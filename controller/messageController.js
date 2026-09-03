@@ -135,7 +135,7 @@ exports.getConversations = async (req, res) => {
 exports.markMessagesAsRead = async (req, res) => {
   try {
     const { senderId } = req.params;
-    const currentUserId = req.user._id;
+    const currentUserId = req.user._id || req.user.id;
 
     if (!senderId || senderId === "undefined") {
       return res
@@ -143,12 +143,20 @@ exports.markMessagesAsRead = async (req, res) => {
         .json({ success: false, message: "Invalid sender ID provided." });
     }
 
-    const updateResult = await Message.updateMany(
-      { sender: senderId, isRead: false },
-      { $set: { isRead: true } }
-    );
+    const conversation = await Conversation.findOne({
+      participants: { $all: [currentUserId, senderId] },
+    });
 
-    const io = req.app.get("io");
+    let modifiedCount = 0;
+    if (conversation) {
+      const updateResult = await Message.updateMany(
+        { conversationId: conversation._id, sender: senderId, isRead: false },
+        { $set: { isRead: true } }
+      );
+      modifiedCount = updateResult.modifiedCount;
+    }
+
+    const io = req.app.get("io") || req.app.get("socketio");
     const getReceiverSocketId = req.app.get("getReceiverSocketId");
     const senderSocketId = getReceiverSocketId
       ? getReceiverSocketId(senderId)
@@ -161,7 +169,7 @@ exports.markMessagesAsRead = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Messages marked as read",
-      modifiedCount: updateResult.modifiedCount,
+      modifiedCount,
     });
   } catch (error) {
     console.error("❌ CRITICAL ERROR in /read/:senderId route:", error);
@@ -169,18 +177,58 @@ exports.markMessagesAsRead = async (req, res) => {
   }
 };
 
-// 5. Get Unread Count
+// 5. Get Unread Count (Count of users who sent new messages & total unread messages)
 exports.getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const unreadCount = await Message.countDocuments({
-      receiver: userId,
+    const userId = req.user._id || req.user.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // 1. Find all conversations the user is a participant of
+    const userConversations = await Conversation.find({
+      participants: userId,
+    }).select("_id");
+
+    const conversationIds = userConversations.map((c) => c._id);
+
+    if (conversationIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          unreadCount: 0,
+          unreadChatCount: 0,
+          unreadUsersCount: 0,
+          totalUnreadMessages: 0,
+          unreadSenders: [],
+        },
+      });
+    }
+
+    // 2. Filter unread messages sent by OTHER participants in these conversations
+    const messageFilter = {
+      conversationId: { $in: conversationIds },
+      sender: { $ne: userId },
       isRead: false,
-    });
+    };
+
+    // 3. Count total unread messages
+    const totalUnreadMessages = await Message.countDocuments(messageFilter);
+
+    // 4. Find distinct senders (the count of users who sent unread messages)
+    const unreadSenders = await Message.distinct("sender", messageFilter);
+    const unreadChatCount = unreadSenders.length;
 
     res.status(200).json({
       success: true,
-      data: { unreadCount },
+      data: {
+        unreadCount: unreadChatCount,
+        unreadChatCount,
+        unreadUsersCount: unreadChatCount,
+        totalUnreadMessages,
+        unreadSenders,
+      },
     });
   } catch (error) {
     console.error("❌ CRITICAL ERROR in /unread-count route:", error);
